@@ -1,10 +1,10 @@
-#!/usr/bin/env python
-# coding: utf-8
-
+import sys
 import pandas as pd
 import numpy as np
 import warnings
-import sklearn
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Conv1D, Flatten, LSTM
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
@@ -13,111 +13,94 @@ import xgboost as xgb
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
-reg = LogisticRegression()
+from sklearn.metrics import accuracy_score, classification_report
+
 warnings.filterwarnings('ignore')
 
-# data = '../dataset/fbs_nas.csv'
-# data = '../dataset/fbs_rrc.csv'
-data = '../dataset/msa_nas.csv'
-# data = '../dataset/msa_rrc.csv'
+class ModelTrainer:
+    def __init__(self, data_path, test_size=0.33, random_state=42):
+        self.data_path = data_path
+        self.test_size = test_size
+        self.random_state = random_state
+        self.X_train, self.X_test, self.y_train, self.y_test = self.load_and_split_data()
 
-df = pd.read_csv(data)
-# df = df.drop(columns=['Unnamed: 0', 'Unnamed: 0.1', 'Unnamed: 0.2'])
-# df = df.drop(columns=['Unnamed: 0'])
-# df.to_csv('dataset/cleaned_data_new.csv', index=False)
+        self.models = {
+            'rf': RandomForestClassifier(criterion='gini', max_depth=3, random_state=0),
+            'svm': SVC(),
+            'dt': DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=0),
+            'xgb': xgb.XGBClassifier(random_state=42),
+            'knn': KNeighborsClassifier(),
+            'nb': GaussianNB(),
+            'lr': LogisticRegression(),
+            'cnn': self.build_cnn_model(),
+            'fnn': self.build_fnn_model(),
+            'lstm': self.build_lstm_model()
+        }
+    
+    def load_and_split_data(self):
+        df = pd.read_csv(self.data_path)
+        X = df.drop(['label'], axis=1).values
+        y = df['label'].values
+        return train_test_split(X, y, test_size=self.test_size, random_state=self.random_state)
+    
+    def build_cnn_model(self):
+        model = Sequential([
+            Conv1D(32, kernel_size=3, activation='relu', input_shape=(self.X_train.shape[1], 1)),
+            Flatten(),
+            Dense(64, activation='relu'),
+            Dense(1, activation='sigmoid')
+        ])
+        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        return model
+    
+    def build_fnn_model(self):
+        model = Sequential([
+            Dense(64, activation='relu', input_shape=(self.X_train.shape[1],)),
+            Dense(32, activation='relu'),
+            Dense(1, activation='sigmoid')
+        ])
+        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        return model
+    
+    def build_lstm_model(self):
+        model = Sequential([
+            LSTM(64, activation='relu', input_shape=(self.X_train.shape[1], 1)),
+            Dense(1, activation='sigmoid')
+        ])
+        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        return model
+    
+    def train_and_evaluate(self):
+        results = {}
+        for name, model in self.models.items():
+            if name in ['cnn', 'fnn', 'lstm']:
+                X_train_reshaped = self.X_train.reshape(self.X_train.shape[0], self.X_train.shape[1], 1)
+                X_test_reshaped = self.X_test.reshape(self.X_test.shape[0], self.X_test.shape[1], 1)
+                model.fit(X_train_reshaped, self.y_train, epochs=10, batch_size=32, verbose=0)
+                y_pred = (model.predict(X_test_reshaped) > 0.5).astype(int).flatten()
+            else:
+                model.fit(self.X_train, self.y_train)
+                y_pred = model.predict(self.X_test)
+            
+            report = classification_report(self.y_test, y_pred, output_dict=True)
+            results[name] = {
+                'precision': report['weighted avg']['precision'],
+                'recall': report['weighted avg']['recall'],
+                'f1-score': report['weighted avg']['f1-score'],
+                'accuracy': accuracy_score(self.y_test, y_pred)
+            }
+        return results
 
-X = df.drop(['label'], axis=1)
-y = df['label']
+    def display_results(self, results):
+        df_results = pd.DataFrame.from_dict(results, orient='index')
+        print("\nModel Performance Metrics:")
+        print(df_results.to_string())
 
-def non_shuffling_train_test_split(X, y, split_at, test_size=0.2):
-    i = split_at
-    X_train, X_test = np.split(X, [i])
-    y_train, y_test = np.split(y, [i])
-    return X_train, X_test, y_train, y_test
-
-X_train, X_test, y_train, y_test = non_shuffling_train_test_split(X, y, split_at=1561, test_size = 0.33)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-clf_list = ['rf', 'svm', 'dt', 'xgb', 'knn', 'nb', 'lr']
-
-def get_model(clf):
-    if clf == 'rf':
-        model = RandomForestClassifier(criterion='gini', max_depth=3, random_state=0)
-    elif clf == 'svm':
-        model = SVC()
-    elif clf == 'dt':
-        model = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=0)
-    elif clf == 'xgb':
-        model = xgb.XGBClassifier(random_state=42)
-    elif clf == 'dt':
-        model = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=0)
-    elif clf == 'knn':
-        model = KNeighborsClassifier()
-    elif clf == 'nb':
-        model = GaussianNB()
-    elif clf == 'lr':
-        model = LogisticRegression()
-    return model
-
-for clf in clf_list:
-    model = get_model(clf)
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    print(clf, '\t{0:0.4f}'. format(accuracy_score(y_test, y_pred)))
-
-# model = get_model('xgb')
-model = get_model('knn')
-model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
-
-print(clf, '\t{0:0.4f}'. format(accuracy_score(y_test, y_pred)))
-print('Test set score: {:.4f}'.format(model.score(X_test, y_test)))
-
-cm = confusion_matrix(y_test, y_pred)
-
-print('Confusion matrix\n\n', cm)
-print(classification_report(y_test, y_pred))
-
-def perf_measure(y_actual, y_hat):
-    TP = 0
-    FP = 0
-    TN = 0
-    FN = 0
-
-    for i in range(len(y_hat)): 
-        if y_actual[i]==y_hat[i]==1:
-            TP += 1
-        if y_hat[i]==1 and y_actual[i]!=y_hat[i]:
-            FP += 1
-        if y_actual[i]==y_hat[i]==0:
-            TN += 1
-        if y_hat[i]==0 and y_actual[i]!=y_hat[i]:
-            FN += 1
-
-    return(TP, FP, TN, FN)
-
-TP, FP, TN, FN = perf_measure(list(y_test), list(y_pred))
-
-# Sensitivity, hit rate, recall, or true positive rate
-TPR = TP/(TP+FN)
-# Specificity or true negative rate
-TNR = TN/(TN+FP) 
-# Precision or positive predictive value
-PPV = TP/(TP+FP)
-# Negative predictive value
-NPV = TN/(TN+FN)
-# Fall out or false positive rate
-FPR = FP/(FP+TN)
-# False negative rate
-FNR = FN/(TP+FN)
-# False discovery rate
-FDR = FP/(TP+FP)
-# Overall accuracy
-ACC = (TP+TN)/(TP+FP+FN+TN)
-
-print("TPR = ", TPR, "\nFPR = ",FPR, "\nTNR = ", TNR, "\nFNR = ", FNR, "\nFDR = ", FDR, "\nACC = ", ACC)
-
-
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <[fbs_nas/msa_nas/fbs_rrc/msa_rrc].csv>")
+        sys.exit(1)
+    data_path = sys.argv[1]  # Change as needed
+    trainer = ModelTrainer(data_path)
+    results = trainer.train_and_evaluate()
+    trainer.display_results(results)
