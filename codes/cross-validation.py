@@ -80,15 +80,13 @@ class GraphDataPreprocessor:
 class GraphSAGEModel(nn.Module):
     def __init__(self, num_features: int, num_classes: int, hidden_dim: int = 64):
         super(GraphSAGEModel, self).__init__()
-        self.conv1 = SAGEConv(num_features, hidden_dim)
-        self.conv2 = SAGEConv(hidden_dim, num_classes)
+        self.conv1 = SAGEConv(num_features, num_classes)
         self.dropout = nn.Dropout(0.5)
     
     def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
-        x = self.conv2(x, edge_index)
         return F.log_softmax(x, dim=1)
 
 class CrossValidator:
