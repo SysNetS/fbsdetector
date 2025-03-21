@@ -41,33 +41,45 @@ class ModelTrainer:
         df = pd.read_csv(self.data_path)
         X = df.drop(['label'], axis=1).values
         y = df['label'].values
-        return train_test_split(X, y, test_size=self.test_size, random_state=self.random_state)
+        
+        unique_labels = np.unique(y)
+        label_map = {original: new for new, original in enumerate(unique_labels)}
+        y_remapped = np.array([label_map[label] for label in y])
+        
+        # Store mapping for later reference
+        self.label_map = label_map
+        self.inverse_label_map = {v: k for k, v in label_map.items()}
+        
+        return train_test_split(X, y_remapped, test_size=self.test_size, random_state=self.random_state)
     
     def build_cnn_model(self):
+        num_classes = len(np.unique(self.y_train))
         model = Sequential([
             Conv1D(32, kernel_size=3, activation='relu', input_shape=(self.X_train.shape[1], 1)),
             Flatten(),
             Dense(64, activation='relu'),
-            Dense(1, activation='sigmoid')
+            Dense(num_classes, activation='softmax')
         ])
-        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
         return model
     
     def build_fnn_model(self):
+        num_classes = len(np.unique(self.y_train))
         model = Sequential([
             Dense(64, activation='relu', input_shape=(self.X_train.shape[1],)),
             Dense(32, activation='relu'),
-            Dense(1, activation='sigmoid')
+            Dense(num_classes, activation='softmax')
         ])
-        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
         return model
     
     def build_lstm_model(self):
+        num_classes = len(np.unique(self.y_train))
         model = Sequential([
             LSTM(64, activation='relu', input_shape=(self.X_train.shape[1], 1)),
-            Dense(1, activation='sigmoid')
+            Dense(num_classes, activation='softmax')
         ])
-        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
         return model
     
     def train_and_evaluate(self):
@@ -77,7 +89,7 @@ class ModelTrainer:
                 X_train_reshaped = self.X_train.reshape(self.X_train.shape[0], self.X_train.shape[1], 1)
                 X_test_reshaped = self.X_test.reshape(self.X_test.shape[0], self.X_test.shape[1], 1)
                 model.fit(X_train_reshaped, self.y_train, epochs=10, batch_size=32, verbose=0)
-                y_pred = (model.predict(X_test_reshaped) > 0.5).astype(int).flatten()
+                y_pred = np.argmax(model.predict(X_test_reshaped), axis=1)
             else:
                 model.fit(self.X_train, self.y_train)
                 y_pred = model.predict(self.X_test)

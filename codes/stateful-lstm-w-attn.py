@@ -43,7 +43,8 @@ def preprocess_data(features, labels, seq_length):
     labels_reshaped = labels_reshaped.reshape(num_samples, seq_length)
 
     # Take the last label in each sequence as the target
-    labels_final = labels_reshaped[:, -1]
+    labels_final = labels_reshaped[:, -1].reshape(-1, 1)  # Ensures shape (num_samples, 1)
+
 
     print(f"Original data length: {len(features_scaled)}")
     print(f"Truncated data length: {truncate_len}")
@@ -84,8 +85,8 @@ class LSTMwithAttention:
         h_t_prime = self.dense(combined)
         return h_t_prime
 
-def create_model(input_shape, lstm_units, seq_length, batch_size):
-    inputs = Input(batch_shape=(batch_size, *input_shape))
+def create_model(input_shape, lstm_units, seq_length):
+    inputs = Input(shape=input_shape)
     stateful_lstm = StatefulLSTM(lstm_units, seq_length)
     h_t = stateful_lstm(inputs)
     lstm_attention = LSTMwithAttention(lstm_units)
@@ -104,16 +105,19 @@ def main(csv_file, label_column, seq_length=10, lstm_units=128, test_size=0.2, r
     # Split into train and test sets
     X_train, X_test, y_train, y_test = train_test_split(features_reshaped, labels_final, test_size=test_size, random_state=random_state)
 
+    y_train = y_train.astype(np.float32).reshape(-1, 1)
+    y_test = y_test.astype(np.float32).reshape(-1, 1)
+
     # Create the model
     input_shape = (seq_length, X_train.shape[2])
-    model = create_model(input_shape, lstm_units, seq_length, batch_size)
+    model = create_model(input_shape, lstm_units, seq_length)
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
     # Train the model
     model.fit(X_train, y_train, epochs=10, batch_size=batch_size, validation_data=(X_test, y_test))
 
     # Evaluate the model
-    loss, accuracy = model.evaluate(X_test, y_test)
+    loss, accuracy = model.evaluate(X_test, y_test, batch_size=batch_size)
     print(f"Test Loss: {loss}, Test Accuracy: {accuracy}")
 
 if __name__ == "__main__":
