@@ -34,9 +34,41 @@ This repository contains code of the paper "Gotta Detect ’Em All: Fake Base St
 └── requirements.txt
 ```
 
+
+
 ## Description
 
 This project implements a machine learning-based approach for detecting fake base stations and multi-step attacks from cellular network traces.
+
+## Dataset Labels
+
+The 1-1 mapping of categorical and encoded labels is given below 
+
+| Attack Name                                             | Label |
+|---------------------------------------------------------|-------|
+| Benign                                                  | 0     |
+| Energy Depletion attack                                 | 1     |
+| NAS counter Desynch attack                              | 2     |
+| X2 signalling flood                                     | 3     |
+| Paging channel hijacking attack                         | 4     |
+| Bidding down with AttachReject                          | 5     |
+| Incarceration with rrcReject and rrcRelease             | 6     |
+| Panic Attack                                            | 7     |
+| Stealthy Kickoff Attack                                 | 8     |
+| Authentication relay attack                             | 9     |
+| Location tracking via measurement reports               | 10    |
+| Capability Hijacking                                    | 11    |
+| Lullaby attack using rrcReestablishRequest              | 12    |
+| Mobile Network Mapping (MNmap)                          | 13    |
+| Lullaby attack with rrcResume                           | 14    |
+| IMSI catching                                           | 15    |
+| Incarceration with rrcReestablishReject                 | 16    |
+| Handover hijacking                                      | 17    |
+| RRC replay attack                                       | 18    |
+| Lullaby attack with rrcReconfiguration                  | 19    |
+| Bidding down with ServiceReject                         | 20    |
+| Bidding down with TAUReject                             | 21    |
+
 
 ## Requirements
 
