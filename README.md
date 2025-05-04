@@ -6,6 +6,9 @@ This repository contains code of the paper "Gotta Detect ’Em All: Fake Base St
 
 ```
 .
+├── app/
+│   ├── app-release.apk
+│   ├── note.txt
 ├── codes/
 │   ├── classification-models.py
 │   ├── cross-validation.py
