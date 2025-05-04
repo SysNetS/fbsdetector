@@ -5,5 +5,4 @@ dataset/signatures/
 dataset/NAS_PCAP_logs/
 outputs/
 models/
-app/
 venv/
