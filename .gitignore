@@ -1,8 +1,12 @@
 # folders
 *__pycache__/
 FBSDetector/
+notebooks/.ipynb_checkpoints/
 dataset/signatures/
 dataset/NAS_PCAP_logs/
+output/
 outputs/
 models/
 venv/
+*.xml
+
